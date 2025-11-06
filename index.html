@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Burguer Horror 🍔</title>
+<style>
+body {
+  margin: 0;
+  background: linear-gradient(45deg, yellow, lime, pink);
+  transform: rotate(2deg);
+  font-family: "Comic Sans MS", cursive;
+  color: magenta;
+  overflow-x: scroll;
+  text-align: justify;
+  transition: background-color 0.2s ease-in-out;
+}
+
+header {
+  background: red;
+  color: yellow;
+  text-align: center;
+  font-size: 50px;
+  padding: 40px;
+  transform: rotate(-4deg);
+  text-shadow: 5px 5px 5px blue;
+}
+
+section {
+  background: rgba(255,255,255,0.2);
+  border: 8px dashed purple;
+  padding: 30px;
+  margin: 50px;
+  width: 80%;
+  transform: rotate(3deg);
+}
+
+img {
+  width: 300px;
+  height: 180px;
+  transform: rotate(-15deg) skew(10deg);
+  margin: 40px;
+  border: 10px ridge orange;
+}
+
+button {
+  background: linear-gradient(to right, red, blue);
+  color: yellow;
+  padding: 20px;
+  border-radius: 50%;
+  transform: rotate(10deg);
+  font-size: 20px;
+  margin-left: 70%;
+  cursor: pointer;
+}
+
+footer {
+  background: green;
+  color: white;
+  text-align: center;
+  padding: 40px;
+  font-size: 25px;
+  transform: rotate(-2deg);
+}
+
+.marquee {
+  font-size: 35px;
+  background: black;
+  color: cyan;
+  transform: rotate(5deg);
+}
+
+li {
+  transform: rotate(-5deg);
+  font-size: 25px;
+}
+
+h2 {
+  color: red;
+  font-size: 40px;
+  transform: rotate(6deg);
+}
+
+input, textarea {
+  display: block;
+  margin: 20px auto;
+  width: 60%;
+  padding: 15px;
+  border: 5px dotted red;
+  transform: rotate(-3deg);
+  background-color: yellow;
+  color: blue;
+  font-size: 20px;
+}
+
+/* --- Efeitos visuais --- */
+.flash {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: white;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 9999;
+  transition: opacity 0.3s ease-in-out;
+}
+
+/* Botão "X" que foge */
+#closeX {
+  position: fixed;
+  font-size: 120px;
+  font-weight: bold;
+  color: red;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(5deg);
+  cursor: pointer;
+  opacity: 0;
+  z-index: 10000;
+  transition: all 0.1s ease-in-out;
+}
+</style>
+</head>
+<body>
+
+<!-- Camadas de flash e pop-ups -->
+<div class="flash" id="flash"></div>
+<div id="closeX">X</div>
+
+<header>🍔 BURGUER HORROR 🍟</header>
+
+<marquee class="marquee" scrollamount="20">
+🔥 Promoção: Peça 1 leve 0,5 (se o sistema deixar) 🔥
+</marquee>
+
+<section>
+  <h2>Nosso Cardápio Torturado:</h2>
+  <ul>
+    <li>Hambúrguer de Sardinha com Chocolate - R$59,90</li>
+    <li>Batata Frita Crua - R$22,00</li>
+    <li>Refrigerante sem gás e quente - R$15,00</li>
+  </ul>
+
+  <h3 style="color:red; text-align:center; transform:rotate(4deg);">
+    Faça seu pedido (se conseguir 😈):
+  </h3>
+  <textarea id="pedido" rows="4" placeholder="Digite seu pedido aqui..."></textarea>
+</section>
+
+<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Hamburger_%28black_bg%29.jpg/640px-Hamburger_%28black_bg%29.jpg" alt="hamburguer horror">
+
+<button id="pedidoBtn">Fazer Pedido (ou não)</button>
+
+<footer>
+© 2025 Burguer Horror - “Feito com descuido e ketchup azedo”
+</footer>
+
+<audio id="risada" src="https://www.myinstants.com/media/sounds/hahaha_1.mp3"></audio>
+
+<script>
+let clickCount = 0;
+let contador = 0;
+
+// --- Campo de pedido bugado ---
+const campoPedido = document.getElementById('pedido');
+campoPedido.addEventListener('input', () => {
+  contador++;
+  if (contador >= 5) {
+    campoPedido.value = campoPedido.value.slice(0, -3);
+    contador = 0;
+  }
+});
+
+// --- Flash e botões ---
+const flash = document.getElementById('flash');
+const closeX = document.getElementById('closeX');
+const risada = document.getElementById('risada');
+
+// Função para piscar colorido ao clicar no botão de pedido
+function flashColorido() {
+  const colors = ['red', 'blue', 'yellow', 'lime', 'pink', 'purple'];
+  let i = 0;
+  const interval = setInterval(() => {
+    flash.style.background = colors[i % colors.length];
+    flash.style.opacity = '1';
+    setTimeout(() => flash.style.opacity = '0', 150);
+    i++;
+    if (i > 12) clearInterval(interval);
+  }, 200);
+}
+
+// Função principal para mostrar tela com X que foge
+function showScreen(color, nextColor = null) {
+  flash.style.background = color;
+  flash.style.opacity = '1';
+  flash.style.pointerEvents = 'auto';
+  closeX.style.opacity = '1';
+  closeX.style.pointerEvents = 'auto';
+
+  // Muda a cor do X conforme a cor de fundo
+  if (color === 'red') {
+    closeX.style.color = 'black';
+  } else {
+    closeX.style.color = 'red';
+  }
+
+  risada.play();
+
+  const moverX = () => {
+    const newX = Math.random() * (window.innerWidth - 150);
+    const newY = Math.random() * (window.innerHeight - 150);
+    closeX.style.left = newX + 'px';
+    closeX.style.top = newY + 'px';
+  };
+  closeX.addEventListener('mousemove', moverX);
+
+  const fechar = () => {
+    flash.style.opacity = '0';
+    closeX.style.opacity = '0';
+    flash.style.pointerEvents = 'none';
+    closeX.style.pointerEvents = 'none';
+    closeX.removeEventListener('mousemove', moverX);
+    closeX.removeEventListener('click', fechar);
+
+    if (nextColor) {
+      setTimeout(() => showScreen(nextColor), 1000);
+    }
+  };
+  closeX.addEventListener('click', fechar);
+}
+
+// Tela branca → verde → vermelha (todas com X)
+function iniciarSequencia() {
+  showScreen('white', 'green');
+  setTimeout(() => {
+    closeX.addEventListener('click', () => {
+      setTimeout(() => showScreen('red'), 1000);
+    });
+  }, 1000);
+}
+
+// Mostra a tela branca a cada 20 segundos
+setInterval(iniciarSequencia, 20000);
+
+// --- Clique no botão de pedido ---
+document.getElementById('pedidoBtn').addEventListener('click', () => {
+  clickCount++;
+  if (clickCount === 1) {
+    flashColorido();
+    alert('💥 Tenta clicar novamente hahahahha 💥');
+  } else if (clickCount === 2) {
+    location.reload();
+  }
+});
+</script>
+
+</body>
+</html>
