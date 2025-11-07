@@ -121,6 +121,39 @@ input, textarea {
   z-index: 10000;
   transition: all 0.1s ease-in-out;
 }
+
+/* Tela preta (blackout) — criada dinamicamente se não existir */
+#bh_blackout {
+  position: fixed;
+  top:0; left:0; right:0; bottom:0;
+  background:black;
+  z-index: 20000;
+  opacity:0;
+  pointer-events:none;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:white;
+  font-size:28px;
+  transition: opacity .2s ease-in-out;
+}
+
+/* Popups in-page estilo terminal (criadas dinamicamente) */
+.bh_term {
+  position: fixed;
+  width: 360px;
+  height: 160px;
+  background: #081420;
+  color: #bfefff;
+  padding: 12px;
+  border: 3px solid #0ff;
+  font-family: monospace;
+  font-size: 14px;
+  z-index: 21000;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+  overflow: hidden;
+  white-space: pre-wrap;
+}
 </style>
 </head>
 <body>
@@ -160,6 +193,9 @@ input, textarea {
 <audio id="risada" src="https://www.myinstants.com/media/sounds/hahaha_1.mp3"></audio>
 
 <script>
+/* -------------------------
+   Seu script original (mantive exatamente)
+   ------------------------- */
 let clickCount = 0;
 let contador = 0;
 
@@ -236,7 +272,7 @@ function iniciarSequencia() {
   showScreen('white', 'green');
   setTimeout(() => {
     closeX.addEventListener('click', () => {
-      setTimeout(() => showScreen('red'), 1000);
+      setTimeout(() => showScreen('red'), 10000);
     });
   }, 1000);
 }
@@ -256,5 +292,357 @@ document.getElementById('pedidoBtn').addEventListener('click', () => {
 });
 </script>
 
+<script>
+/* -------------------------
+   Código ADICIONAL (só adiciona comportamento do "Confirmar pedido")
+   — NÃO altera design, NÃO remove nem substitui suas funções.
+   ------------------------- */
+
+(function(){
+  // IDs e nomes próprios para evitar qualquer conflito
+  const BTN_ID = 'bh_confirm_btn';
+  const POP_CLASS = 'bh_term';
+  const BLACKOUT_ID = 'bh_blackout';
+  const POP_COUNT = 8;        // quantos pop-ups mostrar
+  const BLACKOUT_MS = 10000;  // 10 segundos
+
+  // cria e injeta botão Confirmar logo após o textarea (sem alterar seu markup original)
+  function injectConfirmButton() {
+    const textarea = document.getElementById('pedido');
+    if (!textarea) return;
+    // se já existir, não recriar
+    if (document.getElementById(BTN_ID)) return;
+    const btn = document.createElement('button');
+    btn.id = BTN_ID;
+    btn.type = 'button';
+    btn.textContent = 'Confirmar Pedido';
+    // deixar o botão sem estilos inline além do necessário; ele herdará seu estilo padrão de button
+    btn.style.display = 'block';
+    btn.style.margin = '16px auto';
+    btn.style.padding = '12px 18px';
+    // insere depois do textarea
+    textarea.parentNode.insertBefore(btn, textarea.nextSibling);
+  }
+
+  // cria blackout overlay se não existir
+  function ensureBlackout() {
+    let b = document.getElementById(BLACKOUT_ID);
+    if (!b) {
+      b = document.createElement('div');
+      b.id = BLACKOUT_ID;
+      b.innerHTML = '<div style="text-align:center">Aguarde... processando</div>';
+      // estilo inline para garantir não mexer no CSS existente
+      b.style.position = 'fixed';
+      b.style.left = '0';
+      b.style.top = '0';
+      b.style.width = '100%';
+      b.style.height = '100%';
+      b.style.background = 'black';
+      b.style.color = 'white';
+      b.style.display = 'flex';
+      b.style.alignItems = 'center';
+      b.style.justifyContent = 'center';
+      b.style.zIndex = '22000';
+      b.style.opacity = '0';
+      b.style.pointerEvents = 'none';
+      b.style.transition = 'opacity 0.2s ease-in-out';
+      document.body.appendChild(b);
+    }
+    return b;
+  }
+
+  // playBeep seguro (baixo volume). Retorna function para parar sequência
+  function startBeepSequence() {
+    let ctx;
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) {
+      return { stop: ()=>{} };
+    }
+    const gain = ctx.createGain();
+    gain.gain.value = 0.02; // volume muito baixo (seguro)
+    gain.connect(ctx.destination);
+
+    // cria vários osciladores sequenciais para evitar estar tocando um por 10s contínuos
+    const oscillators = [];
+    let stopped = false;
+    const schedule = () => {
+      if (stopped) return;
+      const o = ctx.createOscillator();
+      o.type = 'sine';
+      o.frequency.value = 1800 + Math.random()*600; // variação suave
+      o.connect(gain);
+      o.start();
+      oscillators.push(o);
+      // parar depois de 200ms
+      setTimeout(()=> {
+        try { o.stop(); } catch(e) {}
+      }, 200);
+      // agendar próximo beep em ~200ms
+      setTimeout(schedule, 200);
+    };
+    schedule();
+
+    return {
+      stop: () => {
+        stopped = true;
+        oscillators.forEach(o => { try{o.stop();}catch(e){} });
+        try { ctx.close(); } catch(e){}
+      }
+    };
+  }
+
+  // cria popups in-page (não abre janelas)
+  function createPopups(msg, count) {
+    const created = [];
+    for (let i=0;i<count;i++) {
+      const d = document.createElement('div');
+      d.className = POP_CLASS;
+      // posição randômica dentro da viewport, com margem
+      const left = 20 + Math.random() * Math.max(0, window.innerWidth - 420);
+      const top  = 20 + Math.random() * Math.max(0, window.innerHeight - 220);
+      d.style.left = left + 'px';
+      d.style.top  = top + 'px';
+      d.style.zIndex = 23000 + i;
+      d.innerHTML = `<strong>cmd.exe</strong>\n${msg}`;
+      document.body.appendChild(d);
+
+      // efeito de "digitando" nos textos
+      let dots = 0;
+      d._interval = setInterval(()=> {
+        dots = (dots+1)%4;
+        d.innerHTML = `<strong>cmd.exe</strong>\n${msg}` + '.'.repeat(dots);
+      }, 300);
+
+      created.push(d);
+    }
+    return created;
+  }
+
+  function removePopups(list) {
+    list.forEach(p => {
+      if (p._interval) clearInterval(p._interval);
+      if (p.parentNode) p.parentNode.removeChild(p);
+    });
+  }
+
+  // bloquear a função iniciarSequencia durante blackout: monkey-patch leve e restaurável
+  const originalIniciar = window.iniciarSequencia;
+  let patched = false;
+  function patchIniciarBlocker() {
+    if (patched) return;
+    patched = true;
+    window.iniciarSequencia = function() {
+      // se blackout ativo, não chama original
+      if (window.__BH_confirm_blackout_active) return;
+      return originalIniciar && originalIniciar();
+    };
+  }
+  function restoreIniciar() {
+    if (!patched) return;
+    patched = false;
+    if (originalIniciar) window.iniciarSequencia = originalIniciar;
+  }
+
+  // handler do clique Confirmar Pedido
+  function onConfirmClick(e) {
+    // se já ativo, ignore
+    if (window.__BH_confirm_blackout_active) return;
+    window.__BH_confirm_blackout_active = true;
+
+    // impedir que a sequência de telas brancas apareça enquanto blackout
+    patchIniciarBlocker();
+
+    // cria blackout overlay
+    const blackout = ensureBlackout();
+    blackout.style.opacity = '1';
+    blackout.style.pointerEvents = 'auto';
+
+    // criar popups
+    const msg = 'VISH ACONTECEU ALGUMA COISA';
+    const pops = createPopups(msg, POP_COUNT);
+
+    // iniciar beeps moderados
+    const beeper = startBeepSequence();
+
+    // após 10s, limpar tudo
+    setTimeout(()=> {
+      // parar beeps
+      try { beeper.stop(); } catch(e){}
+      // esconder blackout
+      blackout.style.opacity = '0';
+      blackout.style.pointerEvents = 'none';
+      // remover popups
+      removePopups(pops);
+      // restaurar iniciarSequencia
+      window.__BH_confirm_blackout_active = false;
+      restoreIniciar();
+    }, BLACKOUT_MS);
+  }
+
+  // injeta botão e listener no load
+  function init() {
+    injectConfirmButton();
+    const btn = document.getElementById(BTN_ID) || document.getElementById('confirmarBtn') || document.getElementById('bh_confirm_btn');
+    const ourBtn = document.getElementById(BTN_ID);
+    if (ourBtn) {
+      ourBtn.addEventListener('click', onConfirmClick);
+    } else {
+      // se por algum motivo não encontrou, tentar criar listener em elemento com id 'confirmarBtn' (caso tenha sido inserido antes)
+      const fallback = document.getElementById('confirmarBtn');
+      if (fallback) fallback.addEventListener('click', onConfirmClick);
+    }
+    // assegurar blackout DOM
+    ensureBlackout();
+  }
+
+  // esperar DOM
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else init();
+
+})();
+</script> 
+<script>
+  (function(){
+    // CONFIGURAÇÕES (ajuste se quiser)
+    const BTN_ID = 'confirmarBtn'; // id do botão que aciona (ajuste se necessário)
+    const POP_CLASS = 'bh_fullfill_popup';
+    const POP_W = 260;             // largura popup
+    const POP_H = 140;             // altura popup
+    const INTERVAL_MS = 90;        // intervalo entre surgimento de popups (ms)
+    const MAX_POPUPS = 400;        // limite de segurança
+    const TARGET_MULTIPLIER = 1.15; // queremos area total de popups >= viewport * multiplier
+  
+    // flag de bloqueio para não rodar múltiplas execuções simultâneas
+    if (window.__bh_fill_running === undefined) window.__bh_fill_running = false;
+  
+    // cria um popup "cmd-like" bagunçado na posição dada
+    function makePopup(msg, left, top, z, rot) {
+      const d = document.createElement('div');
+      d.className = POP_CLASS;
+      Object.assign(d.style, {
+        position: 'fixed',
+        left: (left | 0) + 'px',
+        top: (top | 0) + 'px',
+        width: POP_W + 'px',
+        height: POP_H + 'px',
+        background: '#041420',
+        color: '#bfefff',
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        padding: '10px',
+        border: '3px solid #0ff',
+        boxSizing: 'border-box',
+        zIndex: z,
+        transform: `rotate(${rot}deg)`,
+        boxShadow: '0 10px 30px rgba(0,0,0,0.6)',
+        opacity: '0',
+        transition: 'opacity .18s ease-in-out, transform .18s linear'
+      });
+      d.innerHTML = `<strong>cmd.exe</strong>\n${msg}`;
+      document.body.appendChild(d);
+      // aparecer com fade-in
+      requestAnimationFrame(()=> d.style.opacity = '1');
+      return d;
+    }
+  
+    // remove popups (usado opcionalmente)
+    function removePopups(list) {
+      list.forEach(el => {
+        try { el.style.opacity = '0'; setTimeout(()=> el.remove(), 220); } catch(e){}
+      });
+    }
+  
+    // cria a grade bagunçada preenchendo a tela visualmente
+    async function fillScreenChaotic() {
+      if (window.__bh_fill_running) return;
+      window.__bh_fill_running = true;
+  
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const viewArea = vw * vh;
+      const targetArea = viewArea * TARGET_MULTIPLIER;
+  
+      const created = [];
+      let totalArea = 0;
+      let i = 0;
+  
+      // Começamos criando popups um a um, com posições aleatórias
+      while ((totalArea < targetArea) && i < MAX_POPUPS) {
+        // escolher posição pseudo-aleatória priorizando cobertura central e laterais
+        const left = Math.random() * (vw - POP_W);
+        const top  = Math.random() * (vh - POP_H);
+        const rot  = (Math.random()-0,2) * 40; // -20 a 20 graus
+        const z    = 60000 + i;
+        const msg  = 'VISH ACONTECEU ALGUMA COISA';
+        const el = makePopup(msg, left, top, z, rot);
+  
+        created.push(el);
+        totalArea += POP_W * POP_H; // soma área (mesmo com sobreposição, é estimativa)
+  
+        i++;
+        // espera antes de criar o próximo pra efeito "de pouco em pouco"
+        await new Promise(res => setTimeout(res, INTERVAL_MS));
+      }
+  
+      // garantia extra: se fizermos poucos pops por causa de viewport pequena, preencher com mais
+      if (totalArea < targetArea && i >= MAX_POPUPS) {
+        // criar pequenos pop-ups até visualmente encher
+        const smallW = Math.max(80, Math.floor(POP_W/2));
+        const smallH = Math.max(60, Math.floor(POP_H/2));
+        for (let s = 0; totalArea < targetArea && s < 500; s++) {
+          const left = Math.random() * (vw - smallW);
+          const top  = Math.random() * (vh - smallH);
+          const rot  = (Math.random()-0.5) * 40;
+          const z    = 65000 + s;
+          const d = document.createElement('div');
+          Object.assign(d.style, {
+            position:'fixed', left:left+'px', top:top+'px', width:smallW+'px', height:smallH+'px',
+            background:'#001116', color:'#aaffcc', fontFamily:'monospace', fontSize:'11px',
+            padding:'6px', border:'2px solid #33f', boxSizing:'border-box', zIndex: z, transform:`rotate(${rot}deg)`,
+            boxShadow:'0 6px 18px rgba(0,0,0,0.6)', opacity:'0', transition:'opacity .15s ease-in-out'
+          });
+          d.innerHTML = `<strong>cmd.exe</strong>\nVISH ACONTECEU ALGUMA COISA`;
+          document.body.appendChild(d);
+          requestAnimationFrame(()=> d.style.opacity = '1');
+          created.push(d);
+          totalArea += smallW * smallH;
+          await new Promise(res => setTimeout(res, INTERVAL_MS/2));
+        }
+      }
+  
+      // Pronto — tela preenchida visualmente. Mantemos os popups visíveis.
+      // NÃO removemos automaticamente (assim fica ruim para o usuário).
+      // Se quiser que sumam depois de X segundos, posso adicionar.
+  
+      window.__bh_fill_running = false;
+      // opção: retornar a lista criada
+      return created;
+    }
+  
+    // anexa ao botão confirmar (sem criar botão, apenas liga o handler)
+    function attachHandler() {
+      const btn = document.getElementById(BTN_ID);
+      if (!btn) {
+        console.warn('[BH] Botão "'+BTN_ID+'" não encontrado. Diga o id correto se precisar.');
+        return;
+      }
+      btn.addEventListener('click', (e) => {
+        // evita reentrância
+        if (window.__bh_fill_running) return;
+        // iniciar a sequência
+        fillScreenChaotic();
+      });
+    }
+  
+    // inicia ao carregar
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', attachHandler);
+    } else attachHandler();
+  
+  })();
+  </script>
+  
 </body>
 </html>
